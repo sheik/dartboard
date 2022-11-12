@@ -1,0 +1,4 @@
+package: api
+generate:
+  models: true
+output: pin-types.gen.go

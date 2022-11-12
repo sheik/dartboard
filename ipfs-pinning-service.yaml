@@ -485,6 +485,7 @@ components:
           $ref: '#/components/schemas/Delegates'
         info:
           $ref: '#/components/schemas/StatusInfo'
+        
 
     Pin:
       description: Pin object
@@ -507,6 +508,7 @@ components:
           $ref: '#/components/schemas/PinMeta'
 
     Status:
+      x-go-name: PinningStatus
       description: Status a pin object can have at a pinning service
       type: string
       enum:

@@ -6,7 +6,6 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,949 +16,207 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/go-chi/chi/v5"
+	"github.com/labstack/echo/v4"
 )
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List pin objects
 	// (GET /pins)
-	GetPins(w http.ResponseWriter, r *http.Request, params GetPinsParams)
+	GetPins(ctx echo.Context, params GetPinsParams) error
 	// Add pin object
 	// (POST /pins)
-	AddPin(w http.ResponseWriter, r *http.Request)
+	AddPin(ctx echo.Context) error
 	// Remove pin object
 	// (DELETE /pins/{requestid})
-	DeletePinByRequestId(w http.ResponseWriter, r *http.Request, requestid string)
+	DeletePinByRequestId(ctx echo.Context, requestid string) error
 	// Get pin object
 	// (GET /pins/{requestid})
-	GetPinByRequestId(w http.ResponseWriter, r *http.Request, requestid string)
+	GetPinByRequestId(ctx echo.Context, requestid string) error
 	// Replace pin object
 	// (POST /pins/{requestid})
-	ReplacePinByRequestId(w http.ResponseWriter, r *http.Request, requestid string)
+	ReplacePinByRequestId(ctx echo.Context, requestid string) error
 }
 
-// ServerInterfaceWrapper converts contexts to parameters.
+// ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
-	Handler            ServerInterface
-	HandlerMiddlewares []MiddlewareFunc
-	ErrorHandlerFunc   func(w http.ResponseWriter, r *http.Request, err error)
+	Handler ServerInterface
 }
 
-type MiddlewareFunc func(http.Handler) http.Handler
-
-// GetPins operation middleware
-func (siw *ServerInterfaceWrapper) GetPins(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+// GetPins converts echo context to params.
+func (w *ServerInterfaceWrapper) GetPins(ctx echo.Context) error {
 	var err error
 
-	ctx = context.WithValue(ctx, AccessTokenScopes, []string{""})
+	ctx.Set(AccessTokenScopes, []string{""})
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetPinsParams
-
 	// ------------- Optional query parameter "cid" -------------
 
-	err = runtime.BindQueryParameter("form", false, false, "cid", r.URL.Query(), &params.Cid)
+	err = runtime.BindQueryParameter("form", false, false, "cid", ctx.QueryParams(), &params.Cid)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cid", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cid: %s", err))
 	}
 
 	// ------------- Optional query parameter "name" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "name", r.URL.Query(), &params.Name)
+	err = runtime.BindQueryParameter("form", true, false, "name", ctx.QueryParams(), &params.Name)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
 	}
 
 	// ------------- Optional query parameter "match" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "match", r.URL.Query(), &params.Match)
+	err = runtime.BindQueryParameter("form", true, false, "match", ctx.QueryParams(), &params.Match)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "match", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter match: %s", err))
 	}
 
 	// ------------- Optional query parameter "status" -------------
 
-	err = runtime.BindQueryParameter("form", false, false, "status", r.URL.Query(), &params.Status)
+	err = runtime.BindQueryParameter("form", false, false, "status", ctx.QueryParams(), &params.Status)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
 	}
 
 	// ------------- Optional query parameter "before" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "before", r.URL.Query(), &params.Before)
+	err = runtime.BindQueryParameter("form", true, false, "before", ctx.QueryParams(), &params.Before)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter before: %s", err))
 	}
 
 	// ------------- Optional query parameter "after" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "after", r.URL.Query(), &params.After)
+	err = runtime.BindQueryParameter("form", true, false, "after", ctx.QueryParams(), &params.After)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "after", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter after: %s", err))
 	}
 
 	// ------------- Optional query parameter "limit" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
 	}
 
 	// ------------- Optional query parameter "meta" -------------
 
-	if paramValue := r.URL.Query().Get("meta"); paramValue != "" {
+	if paramValue := ctx.QueryParam("meta"); paramValue != "" {
 
 		var value Meta
 		err = json.Unmarshal([]byte(paramValue), &value)
 		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &UnmarshallingParamError{ParamName: "meta", Err: err})
-			return
+			return echo.NewHTTPError(http.StatusBadRequest, "Error unmarshalling parameter 'meta' as JSON")
 		}
-
 		params.Meta = &value
 
 	}
 
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPins(w, r, params)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetPins(ctx, params)
+	return err
 }
 
-// AddPin operation middleware
-func (siw *ServerInterfaceWrapper) AddPin(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, AccessTokenScopes, []string{""})
-
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AddPin(w, r)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// DeletePinByRequestId operation middleware
-func (siw *ServerInterfaceWrapper) DeletePinByRequestId(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+// AddPin converts echo context to params.
+func (w *ServerInterfaceWrapper) AddPin(ctx echo.Context) error {
 	var err error
 
+	ctx.Set(AccessTokenScopes, []string{""})
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.AddPin(ctx)
+	return err
+}
+
+// DeletePinByRequestId converts echo context to params.
+func (w *ServerInterfaceWrapper) DeletePinByRequestId(ctx echo.Context) error {
+	var err error
 	// ------------- Path parameter "requestid" -------------
 	var requestid string
 
-	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, chi.URLParam(r, "requestid"), &requestid)
+	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, ctx.Param("requestid"), &requestid)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestid", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter requestid: %s", err))
 	}
 
-	ctx = context.WithValue(ctx, AccessTokenScopes, []string{""})
+	ctx.Set(AccessTokenScopes, []string{""})
 
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeletePinByRequestId(w, r, requestid)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.DeletePinByRequestId(ctx, requestid)
+	return err
 }
 
-// GetPinByRequestId operation middleware
-func (siw *ServerInterfaceWrapper) GetPinByRequestId(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+// GetPinByRequestId converts echo context to params.
+func (w *ServerInterfaceWrapper) GetPinByRequestId(ctx echo.Context) error {
 	var err error
-
 	// ------------- Path parameter "requestid" -------------
 	var requestid string
 
-	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, chi.URLParam(r, "requestid"), &requestid)
+	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, ctx.Param("requestid"), &requestid)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestid", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter requestid: %s", err))
 	}
 
-	ctx = context.WithValue(ctx, AccessTokenScopes, []string{""})
+	ctx.Set(AccessTokenScopes, []string{""})
 
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPinByRequestId(w, r, requestid)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetPinByRequestId(ctx, requestid)
+	return err
 }
 
-// ReplacePinByRequestId operation middleware
-func (siw *ServerInterfaceWrapper) ReplacePinByRequestId(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+// ReplacePinByRequestId converts echo context to params.
+func (w *ServerInterfaceWrapper) ReplacePinByRequestId(ctx echo.Context) error {
 	var err error
-
 	// ------------- Path parameter "requestid" -------------
 	var requestid string
 
-	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, chi.URLParam(r, "requestid"), &requestid)
+	err = runtime.BindStyledParameterWithLocation("simple", false, "requestid", runtime.ParamLocationPath, ctx.Param("requestid"), &requestid)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "requestid", Err: err})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter requestid: %s", err))
 	}
 
-	ctx = context.WithValue(ctx, AccessTokenScopes, []string{""})
+	ctx.Set(AccessTokenScopes, []string{""})
 
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ReplacePinByRequestId(w, r, requestid)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.ReplacePinByRequestId(ctx, requestid)
+	return err
 }
 
-type UnescapedCookieParamError struct {
-	ParamName string
-	Err       error
+// This is a simple interface which specifies echo.Route addition functions which
+// are present on both echo.Echo and echo.Group, since we want to allow using
+// either of them for path registration
+type EchoRouter interface {
+	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 }
 
-func (e *UnescapedCookieParamError) Error() string {
-	return fmt.Sprintf("error unescaping cookie parameter '%s'", e.ParamName)
+// RegisterHandlers adds each server route to the EchoRouter.
+func RegisterHandlers(router EchoRouter, si ServerInterface) {
+	RegisterHandlersWithBaseURL(router, si, "")
 }
 
-func (e *UnescapedCookieParamError) Unwrap() error {
-	return e.Err
-}
+// Registers handlers, and prepends BaseURL to the paths, so that the paths
+// can be served under a prefix.
+func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL string) {
 
-type UnmarshallingParamError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *UnmarshallingParamError) Error() string {
-	return fmt.Sprintf("Error unmarshalling parameter %s as JSON: %s", e.ParamName, e.Err.Error())
-}
-
-func (e *UnmarshallingParamError) Unwrap() error {
-	return e.Err
-}
-
-type RequiredParamError struct {
-	ParamName string
-}
-
-func (e *RequiredParamError) Error() string {
-	return fmt.Sprintf("Query argument %s is required, but not found", e.ParamName)
-}
-
-type RequiredHeaderError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *RequiredHeaderError) Error() string {
-	return fmt.Sprintf("Header parameter %s is required, but not found", e.ParamName)
-}
-
-func (e *RequiredHeaderError) Unwrap() error {
-	return e.Err
-}
-
-type InvalidParamFormatError struct {
-	ParamName string
-	Err       error
-}
-
-func (e *InvalidParamFormatError) Error() string {
-	return fmt.Sprintf("Invalid format for parameter %s: %s", e.ParamName, e.Err.Error())
-}
-
-func (e *InvalidParamFormatError) Unwrap() error {
-	return e.Err
-}
-
-type TooManyValuesForParamError struct {
-	ParamName string
-	Count     int
-}
-
-func (e *TooManyValuesForParamError) Error() string {
-	return fmt.Sprintf("Expected one value for %s, got %d", e.ParamName, e.Count)
-}
-
-// Handler creates http.Handler with routing matching OpenAPI spec.
-func Handler(si ServerInterface) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{})
-}
-
-type ChiServerOptions struct {
-	BaseURL          string
-	BaseRouter       chi.Router
-	Middlewares      []MiddlewareFunc
-	ErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
-}
-
-// HandlerFromMux creates http.Handler with routing matching OpenAPI spec based on the provided mux.
-func HandlerFromMux(si ServerInterface, r chi.Router) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseRouter: r,
-	})
-}
-
-func HandlerFromMuxWithBaseURL(si ServerInterface, r chi.Router, baseURL string) http.Handler {
-	return HandlerWithOptions(si, ChiServerOptions{
-		BaseURL:    baseURL,
-		BaseRouter: r,
-	})
-}
-
-// HandlerWithOptions creates http.Handler with additional options
-func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handler {
-	r := options.BaseRouter
-
-	if r == nil {
-		r = chi.NewRouter()
-	}
-	if options.ErrorHandlerFunc == nil {
-		options.ErrorHandlerFunc = func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
-	}
 	wrapper := ServerInterfaceWrapper{
-		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
-		ErrorHandlerFunc:   options.ErrorHandlerFunc,
+		Handler: si,
 	}
 
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/pins", wrapper.GetPins)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/pins", wrapper.AddPin)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/pins/{requestid}", wrapper.DeletePinByRequestId)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/pins/{requestid}", wrapper.GetPinByRequestId)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/pins/{requestid}", wrapper.ReplacePinByRequestId)
-	})
+	router.GET(baseURL+"/pins", wrapper.GetPins)
+	router.POST(baseURL+"/pins", wrapper.AddPin)
+	router.DELETE(baseURL+"/pins/:requestid", wrapper.DeletePinByRequestId)
+	router.GET(baseURL+"/pins/:requestid", wrapper.GetPinByRequestId)
+	router.POST(baseURL+"/pins/:requestid", wrapper.ReplacePinByRequestId)
 
-	return r
-}
-
-type BadRequestJSONResponse Failure
-
-type CustomServiceErrorJSONResponse Failure
-
-type InsufficientFundsJSONResponse Failure
-
-type InternalServerErrorJSONResponse Failure
-
-type NotFoundJSONResponse Failure
-
-type UnauthorizedJSONResponse Failure
-
-type GetPinsRequestObject struct {
-	Params GetPinsParams
-}
-
-type GetPinsResponseObject interface {
-	VisitGetPinsResponse(w http.ResponseWriter) error
-}
-
-type GetPins200JSONResponse PinResults
-
-func (response GetPins200JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPins400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetPins400JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPins401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetPins401JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPins404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetPins404JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPins409JSONResponse struct{ InsufficientFundsJSONResponse }
-
-func (response GetPins409JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPins4XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response GetPins4XXJSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type GetPins5XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response GetPins5XXJSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type AddPinRequestObject struct {
-	Body *AddPinJSONRequestBody
-}
-
-type AddPinResponseObject interface {
-	VisitAddPinResponse(w http.ResponseWriter) error
-}
-
-type AddPin202JSONResponse PinStatus
-
-func (response AddPin202JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(202)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type AddPin400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response AddPin400JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type AddPin401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response AddPin401JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type AddPin404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response AddPin404JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type AddPin409JSONResponse struct{ InsufficientFundsJSONResponse }
-
-func (response AddPin409JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type AddPin4XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response AddPin4XXJSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type AddPin5XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response AddPin5XXJSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type DeletePinByRequestIdRequestObject struct {
-	Requestid string `json:"requestid"`
-}
-
-type DeletePinByRequestIdResponseObject interface {
-	VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error
-}
-
-type DeletePinByRequestId202Response struct {
-}
-
-func (response DeletePinByRequestId202Response) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.WriteHeader(202)
-	return nil
-}
-
-type DeletePinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response DeletePinByRequestId400JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response DeletePinByRequestId401JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response DeletePinByRequestId404JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
-
-func (response DeletePinByRequestId409JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeletePinByRequestId4XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response DeletePinByRequestId4XXJSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type DeletePinByRequestId5XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response DeletePinByRequestId5XXJSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type GetPinByRequestIdRequestObject struct {
-	Requestid string `json:"requestid"`
-}
-
-type GetPinByRequestIdResponseObject interface {
-	VisitGetPinByRequestIdResponse(w http.ResponseWriter) error
-}
-
-type GetPinByRequestId200JSONResponse PinStatus
-
-func (response GetPinByRequestId200JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response GetPinByRequestId400JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response GetPinByRequestId401JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response GetPinByRequestId404JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
-
-func (response GetPinByRequestId409JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetPinByRequestId4XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response GetPinByRequestId4XXJSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type GetPinByRequestId5XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response GetPinByRequestId5XXJSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type ReplacePinByRequestIdRequestObject struct {
-	Requestid string `json:"requestid"`
-	Body      *ReplacePinByRequestIdJSONRequestBody
-}
-
-type ReplacePinByRequestIdResponseObject interface {
-	VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error
-}
-
-type ReplacePinByRequestId202JSONResponse PinStatus
-
-func (response ReplacePinByRequestId202JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(202)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReplacePinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
-
-func (response ReplacePinByRequestId400JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReplacePinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ReplacePinByRequestId401JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReplacePinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
-
-func (response ReplacePinByRequestId404JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReplacePinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
-
-func (response ReplacePinByRequestId409JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ReplacePinByRequestId4XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response ReplacePinByRequestId4XXJSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-type ReplacePinByRequestId5XXJSONResponse struct {
-	Body       Failure
-	StatusCode int
-}
-
-func (response ReplacePinByRequestId5XXJSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-
-	return json.NewEncoder(w).Encode(response.Body)
-}
-
-// StrictServerInterface represents all server handlers.
-type StrictServerInterface interface {
-	// List pin objects
-	// (GET /pins)
-	GetPins(ctx context.Context, request GetPinsRequestObject) (GetPinsResponseObject, error)
-	// Add pin object
-	// (POST /pins)
-	AddPin(ctx context.Context, request AddPinRequestObject) (AddPinResponseObject, error)
-	// Remove pin object
-	// (DELETE /pins/{requestid})
-	DeletePinByRequestId(ctx context.Context, request DeletePinByRequestIdRequestObject) (DeletePinByRequestIdResponseObject, error)
-	// Get pin object
-	// (GET /pins/{requestid})
-	GetPinByRequestId(ctx context.Context, request GetPinByRequestIdRequestObject) (GetPinByRequestIdResponseObject, error)
-	// Replace pin object
-	// (POST /pins/{requestid})
-	ReplacePinByRequestId(ctx context.Context, request ReplacePinByRequestIdRequestObject) (ReplacePinByRequestIdResponseObject, error)
-}
-
-type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, args interface{}) (interface{}, error)
-
-type StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
-
-type StrictHTTPServerOptions struct {
-	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
-	ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
-}
-
-func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		},
-	}}
-}
-
-func NewStrictHandlerWithOptions(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
-}
-
-type strictHandler struct {
-	ssi         StrictServerInterface
-	middlewares []StrictMiddlewareFunc
-	options     StrictHTTPServerOptions
-}
-
-// GetPins operation middleware
-func (sh *strictHandler) GetPins(w http.ResponseWriter, r *http.Request, params GetPinsParams) {
-	var request GetPinsRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPins(ctx, request.(GetPinsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPins")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetPinsResponseObject); ok {
-		if err := validResponse.VisitGetPinsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("Unexpected response type: %T", response))
-	}
-}
-
-// AddPin operation middleware
-func (sh *strictHandler) AddPin(w http.ResponseWriter, r *http.Request) {
-	var request AddPinRequestObject
-
-	var body AddPinJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.AddPin(ctx, request.(AddPinRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AddPin")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(AddPinResponseObject); ok {
-		if err := validResponse.VisitAddPinResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("Unexpected response type: %T", response))
-	}
-}
-
-// DeletePinByRequestId operation middleware
-func (sh *strictHandler) DeletePinByRequestId(w http.ResponseWriter, r *http.Request, requestid string) {
-	var request DeletePinByRequestIdRequestObject
-
-	request.Requestid = requestid
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeletePinByRequestId(ctx, request.(DeletePinByRequestIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeletePinByRequestId")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeletePinByRequestIdResponseObject); ok {
-		if err := validResponse.VisitDeletePinByRequestIdResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("Unexpected response type: %T", response))
-	}
-}
-
-// GetPinByRequestId operation middleware
-func (sh *strictHandler) GetPinByRequestId(w http.ResponseWriter, r *http.Request, requestid string) {
-	var request GetPinByRequestIdRequestObject
-
-	request.Requestid = requestid
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPinByRequestId(ctx, request.(GetPinByRequestIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPinByRequestId")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetPinByRequestIdResponseObject); ok {
-		if err := validResponse.VisitGetPinByRequestIdResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("Unexpected response type: %T", response))
-	}
-}
-
-// ReplacePinByRequestId operation middleware
-func (sh *strictHandler) ReplacePinByRequestId(w http.ResponseWriter, r *http.Request, requestid string) {
-	var request ReplacePinByRequestIdRequestObject
-
-	request.Requestid = requestid
-
-	var body ReplacePinByRequestIdJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ReplacePinByRequestId(ctx, request.(ReplacePinByRequestIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ReplacePinByRequestId")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ReplacePinByRequestIdResponseObject); ok {
-		if err := validResponse.VisitReplacePinByRequestIdResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("Unexpected response type: %T", response))
-	}
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object

@@ -1,6 +1,5 @@
 package: api
 generate:
-  chi-server: true
-  strict-server: true
+  echo-server: true
   embedded-spec: true
 output: pin-server.gen.go

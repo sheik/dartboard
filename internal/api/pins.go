@@ -4,45 +4,37 @@
 package api
 
 import (
-	"github.com/labstack/echo/v4"
-	"net/http"
+	"context"
 )
 
 type PinningServer struct {
 }
 
-var _ ServerInterface = (*PinningServer)(nil)
-
 func NewPinningServer() *PinningServer {
 	return &PinningServer{}
 }
 
-// List pin objects
-// (GET /pins)
-func (ps *PinningServer) GetPins(ctx echo.Context, params GetPinsParams) error {
-	return ctx.JSON(http.StatusOK, nil)
+func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject) (GetPinsResponseObject, error) {
+	var results PinResults
+	return GetPins200JSONResponse(results), nil
 }
 
-// Add pin object
-// (POST /pins)
-func (ps *PinningServer) AddPin(ctx echo.Context) error {
-	return nil
+func (p PinningServer) AddPin(ctx context.Context, request AddPinRequestObject) (AddPinResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-// Remove pin object
-// (DELETE /pins/{requestid})
-func (ps *PinningServer) DeletePinByRequestId(ctx echo.Context, requestid string) error {
-	return nil
+func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeletePinByRequestIdRequestObject) (DeletePinByRequestIdResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-// Get pin object
-// (GET /pins/{requestid})
-func (ps *PinningServer) GetPinByRequestId(ctx echo.Context, requestid string) error {
-	return nil
+func (p PinningServer) GetPinByRequestId(ctx context.Context, request GetPinByRequestIdRequestObject) (GetPinByRequestIdResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
-// Replace pin object
-// (POST /pins/{requestid})
-func (ps *PinningServer) ReplacePinByRequestId(ctx echo.Context, requestid string) error {
-	return nil
+func (p PinningServer) ReplacePinByRequestId(ctx context.Context, request ReplacePinByRequestIdRequestObject) (ReplacePinByRequestIdResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
 }

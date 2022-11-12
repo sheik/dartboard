@@ -6,6 +6,7 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -217,6 +218,570 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/pins/:requestid", wrapper.GetPinByRequestId)
 	router.POST(baseURL+"/pins/:requestid", wrapper.ReplacePinByRequestId)
 
+}
+
+type BadRequestJSONResponse Failure
+
+type CustomServiceErrorJSONResponse Failure
+
+type InsufficientFundsJSONResponse Failure
+
+type InternalServerErrorJSONResponse Failure
+
+type NotFoundJSONResponse Failure
+
+type UnauthorizedJSONResponse Failure
+
+type GetPinsRequestObject struct {
+	Params GetPinsParams
+}
+
+type GetPinsResponseObject interface {
+	VisitGetPinsResponse(w http.ResponseWriter) error
+}
+
+type GetPins200JSONResponse PinResults
+
+func (response GetPins200JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPins400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPins400JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPins401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPins401JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPins404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPins404JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPins409JSONResponse struct{ InsufficientFundsJSONResponse }
+
+func (response GetPins409JSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPins4XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response GetPins4XXJSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPins5XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response GetPins5XXJSONResponse) VisitGetPinsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type AddPinRequestObject struct {
+	Body *AddPinJSONRequestBody
+}
+
+type AddPinResponseObject interface {
+	VisitAddPinResponse(w http.ResponseWriter) error
+}
+
+type AddPin202JSONResponse PinStatus
+
+func (response AddPin202JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddPin400JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddPin401JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AddPin404JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPin409JSONResponse struct{ InsufficientFundsJSONResponse }
+
+func (response AddPin409JSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AddPin4XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response AddPin4XXJSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type AddPin5XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response AddPin5XXJSONResponse) VisitAddPinResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type DeletePinByRequestIdRequestObject struct {
+	Requestid string `json:"requestid"`
+}
+
+type DeletePinByRequestIdResponseObject interface {
+	VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error
+}
+
+type DeletePinByRequestId202Response struct {
+}
+
+func (response DeletePinByRequestId202Response) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type DeletePinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeletePinByRequestId400JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeletePinByRequestId401JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeletePinByRequestId404JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
+
+func (response DeletePinByRequestId409JSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeletePinByRequestId4XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response DeletePinByRequestId4XXJSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type DeletePinByRequestId5XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response DeletePinByRequestId5XXJSONResponse) VisitDeletePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPinByRequestIdRequestObject struct {
+	Requestid string `json:"requestid"`
+}
+
+type GetPinByRequestIdResponseObject interface {
+	VisitGetPinByRequestIdResponse(w http.ResponseWriter) error
+}
+
+type GetPinByRequestId200JSONResponse PinStatus
+
+func (response GetPinByRequestId200JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetPinByRequestId400JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetPinByRequestId401JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPinByRequestId404JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
+
+func (response GetPinByRequestId409JSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPinByRequestId4XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response GetPinByRequestId4XXJSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetPinByRequestId5XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response GetPinByRequestId5XXJSONResponse) VisitGetPinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ReplacePinByRequestIdRequestObject struct {
+	Requestid string `json:"requestid"`
+	Body      *ReplacePinByRequestIdJSONRequestBody
+}
+
+type ReplacePinByRequestIdResponseObject interface {
+	VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error
+}
+
+type ReplacePinByRequestId202JSONResponse PinStatus
+
+func (response ReplacePinByRequestId202JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReplacePinByRequestId400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ReplacePinByRequestId400JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReplacePinByRequestId401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ReplacePinByRequestId401JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReplacePinByRequestId404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReplacePinByRequestId404JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReplacePinByRequestId409JSONResponse struct{ InsufficientFundsJSONResponse }
+
+func (response ReplacePinByRequestId409JSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ReplacePinByRequestId4XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response ReplacePinByRequestId4XXJSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ReplacePinByRequestId5XXJSONResponse struct {
+	Body       Failure
+	StatusCode int
+}
+
+func (response ReplacePinByRequestId5XXJSONResponse) VisitReplacePinByRequestIdResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+// StrictServerInterface represents all server handlers.
+type StrictServerInterface interface {
+	// List pin objects
+	// (GET /pins)
+	GetPins(ctx context.Context, request GetPinsRequestObject) (GetPinsResponseObject, error)
+	// Add pin object
+	// (POST /pins)
+	AddPin(ctx context.Context, request AddPinRequestObject) (AddPinResponseObject, error)
+	// Remove pin object
+	// (DELETE /pins/{requestid})
+	DeletePinByRequestId(ctx context.Context, request DeletePinByRequestIdRequestObject) (DeletePinByRequestIdResponseObject, error)
+	// Get pin object
+	// (GET /pins/{requestid})
+	GetPinByRequestId(ctx context.Context, request GetPinByRequestIdRequestObject) (GetPinByRequestIdResponseObject, error)
+	// Replace pin object
+	// (POST /pins/{requestid})
+	ReplacePinByRequestId(ctx context.Context, request ReplacePinByRequestIdRequestObject) (ReplacePinByRequestIdResponseObject, error)
+}
+
+type StrictHandlerFunc func(ctx echo.Context, args interface{}) (interface{}, error)
+
+type StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
+
+func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
+	return &strictHandler{ssi: ssi, middlewares: middlewares}
+}
+
+type strictHandler struct {
+	ssi         StrictServerInterface
+	middlewares []StrictMiddlewareFunc
+}
+
+// GetPins operation middleware
+func (sh *strictHandler) GetPins(ctx echo.Context, params GetPinsParams) error {
+	var request GetPinsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPins(ctx.Request().Context(), request.(GetPinsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPins")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetPinsResponseObject); ok {
+		return validResponse.VisitGetPinsResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// AddPin operation middleware
+func (sh *strictHandler) AddPin(ctx echo.Context) error {
+	var request AddPinRequestObject
+
+	var body AddPinJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.AddPin(ctx.Request().Context(), request.(AddPinRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddPin")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(AddPinResponseObject); ok {
+		return validResponse.VisitAddPinResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// DeletePinByRequestId operation middleware
+func (sh *strictHandler) DeletePinByRequestId(ctx echo.Context, requestid string) error {
+	var request DeletePinByRequestIdRequestObject
+
+	request.Requestid = requestid
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePinByRequestId(ctx.Request().Context(), request.(DeletePinByRequestIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePinByRequestId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(DeletePinByRequestIdResponseObject); ok {
+		return validResponse.VisitDeletePinByRequestIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetPinByRequestId operation middleware
+func (sh *strictHandler) GetPinByRequestId(ctx echo.Context, requestid string) error {
+	var request GetPinByRequestIdRequestObject
+
+	request.Requestid = requestid
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPinByRequestId(ctx.Request().Context(), request.(GetPinByRequestIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPinByRequestId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetPinByRequestIdResponseObject); ok {
+		return validResponse.VisitGetPinByRequestIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReplacePinByRequestId operation middleware
+func (sh *strictHandler) ReplacePinByRequestId(ctx echo.Context, requestid string) error {
+	var request ReplacePinByRequestIdRequestObject
+
+	request.Requestid = requestid
+
+	var body ReplacePinByRequestIdJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplacePinByRequestId(ctx.Request().Context(), request.(ReplacePinByRequestIdRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplacePinByRequestId")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ReplacePinByRequestIdResponseObject); ok {
+		return validResponse.VisitReplacePinByRequestIdResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("Unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object

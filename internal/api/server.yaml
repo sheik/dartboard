@@ -1,5 +1,6 @@
 package: api
 generate:
   echo-server: true
+  strict-server: true
   embedded-spec: true
 output: pin-server.gen.go

@@ -22,8 +22,9 @@ func main() {
 
 	e.Use(middleware.Logger())
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
-		KeyLookup: "header:x-api-key",
+		KeyLookup: "header:Authorization",
 		Validator: func(key string, c echo.Context) (bool, error) {
+			log.Info().Str("Authorization", key).Msg("request")
 			return key == "secret", nil
 		},
 	}))

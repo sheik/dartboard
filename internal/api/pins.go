@@ -5,14 +5,18 @@ package api
 
 import (
 	"context"
+	"github.com/google/uuid"
 	shell "github.com/ipfs/go-ipfs-api"
+	"github.com/rs/zerolog/log"
+	"time"
 )
 
 type PinningServer struct {
+	pins map[string]PinStatus
 }
 
 func NewPinningServer() *PinningServer {
-	return &PinningServer{}
+	return &PinningServer{pins: make(map[string]PinStatus)}
 }
 
 func Reason(reason string) BadRequestJSONResponse {
@@ -30,22 +34,59 @@ func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject
 
 	sh := shell.NewShell("localhost:5001")
 
-	if request.Params.Cid == nil {
-		return GetPins400JSONResponse{Reason("cid is required")}, nil
+	pins, err := sh.Pins()
+	if err != nil {
+		return GetPins5XXJSONResponse{}, nil
 	}
 
-	for _, cid := range *request.Params.Cid {
-		err := sh.Pin(cid)
-		if err != nil {
-			panic(err)
-		}
+	for cid, _ := range pins {
+		results.Results = append(results.Results, PinStatus{
+			Created: time.Time{},
+			Pin: Pin{
+				Cid: cid,
+			},
+			Requestid:     "",
+			PinningStatus: "pinned",
+		})
 	}
+
 	return GetPins200JSONResponse(results), nil
 }
 
 func (p PinningServer) AddPin(ctx context.Context, request AddPinRequestObject) (AddPinResponseObject, error) {
-	//TODO implement me
-	return AddPin202JSONResponse{}, nil
+	sh := shell.NewShell("localhost:5001")
+	if request.Body.Cid == "" {
+		return AddPin400JSONResponse{Reason("cid is required")}, nil
+	}
+
+	err := sh.Pin(request.Body.Cid)
+	if err != nil {
+		log.Error().Err(err).Msg("unable to pin")
+		return AddPin400JSONResponse{Reason(err.Error())}, nil
+	}
+
+	requestId, err := uuid.NewUUID()
+	if err != nil {
+		return AddPin5XXJSONResponse{}, nil
+	}
+
+	result := PinStatus{
+		Created:   time.Now().UTC(),
+		Delegates: nil,
+		Info:      nil,
+		Pin: Pin{
+			Cid:     request.Body.Cid,
+			Meta:    request.Body.Meta,
+			Name:    request.Body.Name,
+			Origins: request.Body.Origins,
+		},
+		Requestid:     requestId.String(),
+		PinningStatus: "pinned",
+	}
+
+	p.pins[requestId.String()] = result
+
+	return AddPin202JSONResponse(result), nil
 }
 
 func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeletePinByRequestIdRequestObject) (DeletePinByRequestIdResponseObject, error) {
@@ -54,8 +95,12 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 }
 
 func (p PinningServer) GetPinByRequestId(ctx context.Context, request GetPinByRequestIdRequestObject) (GetPinByRequestIdResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	pinStatus, ok := p.pins[request.Requestid]
+	if !ok {
+		return GetPinByRequestId404JSONResponse{}, nil
+	}
+
+	return GetPinByRequestId200JSONResponse(pinStatus), nil
 }
 
 func (p PinningServer) ReplacePinByRequestId(ctx context.Context, request ReplacePinByRequestIdRequestObject) (ReplacePinByRequestIdResponseObject, error) {

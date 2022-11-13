@@ -1,7 +1,4 @@
-
-drop table if exists pins;
-
-create table pins (
+create table if not exists pins (
     cid varchar(255),
     name varchar(255),
     request_id varchar(255),

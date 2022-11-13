@@ -19,15 +19,20 @@ var plan = fab.Plan{
 		Depends: "oapi-codegen",
 	},
 	"build": {
-		Command: "go build -o . ./...",
+		Command: "CGO_ENABLED=0 go build -o . ./...",
 		Depends: "clean api test",
 		Default: true,
 		Help:    "build binaries",
 	},
 	"test": {
-		Command: "go test ./...",
+		Command: "go test ./... -v",
 		Depends: "clean",
 		Help:    "run bdd tests",
+	},
+	"docker-image": {
+		Command: "docker build . -t dartboard:latest",
+		Depends: "build",
+		Help:    "build a docker image of dartboard",
 	},
 }
 

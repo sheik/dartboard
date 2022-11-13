@@ -3,6 +3,7 @@ module dartboard
 go 1.19
 
 require (
+	github.com/cucumber/godog v0.12.5
 	github.com/deepmap/oapi-codegen v1.12.2
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/google/uuid v1.3.0
@@ -10,6 +11,7 @@ require (
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/rs/zerolog v1.28.0
 	github.com/sheik/fab v0.0.16
+	github.com/spf13/pflag v1.0.5
 	modernc.org/sqlite v1.19.4
 )
 
@@ -18,10 +20,16 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/crackcomm/go-gitignore v0.0.0-20170627025303-887ab5e44cc3 // indirect
 	github.com/creack/pty v1.1.18 // indirect
+	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
+	github.com/cucumber/messages-go/v16 v16.0.1 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
+	github.com/hashicorp/go-memdb v1.3.0 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/invopop/yaml v0.1.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.9 // indirect

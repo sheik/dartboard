@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"github.com/google/uuid"
 	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/rs/zerolog/log"
@@ -14,12 +15,25 @@ import (
 	"time"
 )
 
+var (
+	//go:embed sql/pin.sql
+	CreateTableSQL string
+)
+
 type PinningServer struct {
 	pins map[string]PinStatus
 }
 
 func NewPinningServer() *PinningServer {
-	// TODO initialize database if it doesn't exist
+	db, err := sql.Open("sqlite", "pins.sqlite")
+	if err != nil {
+		log.Error().Err(err).Msg("unable to open database")
+	}
+	defer db.Close()
+	_, err = db.Exec(CreateTableSQL)
+	if err != nil {
+		log.Error().Err(err).Msg("unable to open database")
+	}
 	return &PinningServer{pins: make(map[string]PinStatus)}
 }
 
@@ -39,7 +53,7 @@ func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject
 	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to open database")
-		return GetPins5XXJSONResponse{}, nil
+		return GetPins5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer db.Close()
 	status := "pinned"
@@ -80,12 +94,12 @@ func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare query")
-		return GetPins5XXJSONResponse{}, nil
+		return GetPins5XXJSONResponse{StatusCode: 500}, nil
 	}
 	rows, err := stmt.Query(params...)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to select from pins")
-		return GetPins5XXJSONResponse{}, nil
+		return GetPins5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer rows.Close()
 
@@ -97,7 +111,7 @@ func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject
 	err = rows.Err()
 	if err != nil {
 		log.Error().Err(err).Msg("error fetching rows")
-		return GetPins5XXJSONResponse{}, nil
+		return GetPins5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	results.Count = int32(len(results.Results))
@@ -114,12 +128,12 @@ func (p PinningServer) AddPin(ctx context.Context, request AddPinRequestObject) 
 	err := sh.Pin(request.Body.Cid)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to pin")
-		return AddPin400JSONResponse{Reason(err.Error())}, nil
+		return AddPin400JSONResponse{Reason("unable to pin")}, nil
 	}
 
 	requestId, err := uuid.NewUUID()
 	if err != nil {
-		return AddPin5XXJSONResponse{}, nil
+		return AddPin5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	result := PinStatus{
@@ -139,20 +153,20 @@ func (p PinningServer) AddPin(ctx context.Context, request AddPinRequestObject) 
 	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to open database")
-		return AddPin5XXJSONResponse{}, nil
+		return AddPin5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer db.Close()
 
 	stmt, err := db.Prepare("insert into pins (cid, name, request_id, created_at, status) VALUES (?, ?, ?, ?, ?)")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare database query")
-		return AddPin5XXJSONResponse{}, nil
+		return AddPin5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	_, err = stmt.Exec(result.Pin.Cid, result.Pin.Name, result.Requestid, result.Created, "pinned")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to execute database query")
-		return AddPin5XXJSONResponse{}, nil
+		return AddPin5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	return AddPin202JSONResponse(result), nil
@@ -168,20 +182,20 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to open database")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer db.Close()
 
 	stmt, err := db.Prepare("select request_id, cid from pins where request_id = ?")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare query")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	rows, err := stmt.Query(request.Requestid)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to execute query")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer rows.Close()
 
@@ -202,19 +216,19 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 	err = rows.Err()
 	if err != nil {
 		log.Error().Err(err).Msg("error fetching rows")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	stmt, err = db.Prepare("delete from pins where request_id IN (?)")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare delete query")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	_, err = stmt.Exec(strings.Join(requestIds, ","))
 	if err != nil {
 		log.Error().Err(err).Msg("unable to execute delete query")
-		return DeletePinByRequestId5XXJSONResponse{}, nil
+		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 	return DeletePinByRequestId202Response{}, nil
 }
@@ -223,20 +237,20 @@ func (p PinningServer) GetPinByRequestId(ctx context.Context, request GetPinByRe
 	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to open database")
-		return GetPinByRequestId5XXJSONResponse{}, nil
+		return GetPinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer db.Close()
 
 	stmt, err := db.Prepare("select cid, name, request_id, created_at, status from pins where request_id = ?")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare query")
-		return GetPinByRequestId5XXJSONResponse{}, nil
+		return GetPinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	rows, err := stmt.Query(request.Requestid)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to execute query")
-		return GetPinByRequestId5XXJSONResponse{}, nil
+		return GetPinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 	defer rows.Close()
 
@@ -247,7 +261,7 @@ func (p PinningServer) GetPinByRequestId(ctx context.Context, request GetPinByRe
 	err = rows.Err()
 	if err != nil {
 		log.Error().Err(err).Msg("error fetching rows")
-		return GetPinByRequestId5XXJSONResponse{}, nil
+		return GetPinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
 	return GetPinByRequestId200JSONResponse(pinStatus), nil

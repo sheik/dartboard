@@ -5,9 +5,12 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"github.com/google/uuid"
 	shell "github.com/ipfs/go-ipfs-api"
 	"github.com/rs/zerolog/log"
+	_ "modernc.org/sqlite"
+	"strings"
 	"time"
 )
 
@@ -32,22 +35,53 @@ func Reason(reason string) BadRequestJSONResponse {
 func (p PinningServer) GetPins(ctx context.Context, request GetPinsRequestObject) (GetPinsResponseObject, error) {
 	var results PinResults
 
-	sh := shell.NewShell("localhost:5001")
-
-	pins, err := sh.Pins()
+	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
+		log.Error().Err(err).Msg("unable to open database")
+		return GetPins5XXJSONResponse{}, nil
+	}
+	status := "pinned"
+	if request.Params.Status != nil {
+		var statusList []string
+		for _, s := range *request.Params.Status {
+			statusList = append(statusList, string(s))
+		}
+		status = strings.Join(statusList, ", ")
+	}
+	after := time.Now().AddDate(-100, 0, 0)
+	if request.Params.After != nil {
+		after = *request.Params.After
+	}
+	before := time.Now().AddDate(1, 0, 0)
+	if request.Params.Before != nil {
+		before = *request.Params.Before
+	}
+	limit := 10
+	if request.Params.Limit != nil {
+		limit = int(*request.Params.Limit)
+	}
+	stmt, err := db.Prepare("select cid, name, request_id, created_at, status from pins where status IN (?) and created_at < ? and created_at > ? limit ?")
+	if err != nil {
+		log.Error().Err(err).Msg("unable to prepare query")
 		return GetPins5XXJSONResponse{}, nil
 	}
 
-	for cid, _ := range pins {
-		results.Results = append(results.Results, PinStatus{
-			Created: time.Time{},
-			Pin: Pin{
-				Cid: cid,
-			},
-			Requestid:     "",
-			PinningStatus: "pinned",
-		})
+	rows, err := stmt.Query(status, before, after, limit)
+	if err != nil {
+		log.Error().Err(err).Msg("unable to select from pins")
+		return GetPins5XXJSONResponse{}, nil
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		pin := PinStatus{}
+		rows.Scan(&pin.Pin.Cid, &pin.Pin.Name, &pin.Requestid, &pin.Created, &pin.PinningStatus)
+		results.Results = append(results.Results, pin)
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Error().Err(err).Msg("error fetching rows")
+		return GetPins5XXJSONResponse{}, nil
 	}
 
 	return GetPins200JSONResponse(results), nil
@@ -85,6 +119,23 @@ func (p PinningServer) AddPin(ctx context.Context, request AddPinRequestObject) 
 	}
 
 	p.pins[requestId.String()] = result
+	db, err := sql.Open("sqlite", "pins.sqlite")
+	if err != nil {
+		log.Error().Err(err).Msg("unable to open database")
+		return AddPin5XXJSONResponse{}, nil
+	}
+
+	stmt, err := db.Prepare("insert into pins (cid, name, request_id, created_at, status) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		log.Error().Err(err).Msg("unable to prepare database query")
+		return AddPin5XXJSONResponse{}, nil
+	}
+
+	_, err = stmt.Exec(result.Pin.Cid, result.Pin.Name, result.Requestid, result.Created, "pinned")
+	if err != nil {
+		log.Error().Err(err).Msg("unable to execute database query")
+		return AddPin5XXJSONResponse{}, nil
+	}
 
 	return AddPin202JSONResponse(result), nil
 }

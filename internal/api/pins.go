@@ -19,6 +19,7 @@ type PinningServer struct {
 }
 
 func NewPinningServer() *PinningServer {
+	// TODO initialize database if it doesn't exist
 	return &PinningServer{pins: make(map[string]PinStatus)}
 }
 
@@ -162,6 +163,8 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 		return DeletePinByRequestId400JSONResponse{Reason("requestId is required")}, nil
 	}
 
+	sh := shell.NewShell("localhost:5001")
+
 	db, err := sql.Open("sqlite", "pins.sqlite")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to open database")
@@ -169,7 +172,7 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("select request_id from pins where request_id = ?")
+	stmt, err := db.Prepare("select request_id, cid from pins where request_id = ?")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare query")
 		return DeletePinByRequestId5XXJSONResponse{}, nil
@@ -185,8 +188,16 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 	var requestIds []string
 	for rows.Next() {
 		var requestId string
-		rows.Scan(&requestId)
+		var cid string
+
+		rows.Scan(&requestId, &cid)
 		requestIds = append(requestIds, requestId)
+
+		// TODO pins should only be unpinned if this is not pinned over all accounts
+		err := sh.Unpin(cid)
+		if err != nil {
+			log.Error().Str("CID", cid).Str("RequestId", requestId).Err(err).Msg("could not unpin cid")
+		}
 	}
 	err = rows.Err()
 	if err != nil {
@@ -243,6 +254,6 @@ func (p PinningServer) GetPinByRequestId(ctx context.Context, request GetPinByRe
 }
 
 func (p PinningServer) ReplacePinByRequestId(ctx context.Context, request ReplacePinByRequestIdRequestObject) (ReplacePinByRequestIdResponseObject, error) {
-	//TODO implement me
+	//TODO implement ReplacePinByRequestId
 	panic("implement me")
 }

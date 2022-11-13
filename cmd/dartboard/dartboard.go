@@ -10,17 +10,11 @@ import (
 func main() {
 	log.Info().Msg("dartboard starting")
 
-	swagger, err := api.GetSwagger()
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot get swagger")
-	}
-	swagger.Servers = nil
-
-	pinningServer := api.NewPinningServer()
-
 	e := echo.New()
 
 	e.Use(middleware.Logger())
+
+	// TODO implement actual auth system
 	e.Use(middleware.KeyAuthWithConfig(middleware.KeyAuthConfig{
 		KeyLookup: "header:Authorization",
 		Validator: func(key string, c echo.Context) (bool, error) {
@@ -29,7 +23,7 @@ func main() {
 		},
 	}))
 
-	strictHandler := api.NewStrictHandler(pinningServer, nil)
+	strictHandler := api.NewStrictHandler(api.NewPinningServer(), nil)
 	api.RegisterHandlers(e, strictHandler)
 
 	log.Fatal().Err(e.Start(":8888")).Msg("server exited")

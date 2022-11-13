@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/deepmap/oapi-codegen v1.12.2
 	github.com/getkin/kin-openapi v0.108.0
+	github.com/google/uuid v1.3.0
 	github.com/ipfs/go-ipfs-api v0.3.0
 	github.com/labstack/echo/v4 v4.9.1
 	github.com/rs/zerolog v1.28.0
@@ -20,7 +21,6 @@ require (
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/invopop/yaml v0.1.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-files v0.0.9 // indirect

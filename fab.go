@@ -20,14 +20,15 @@ var plan = fab.Plan{
 	},
 	"build": {
 		Command: "CGO_ENABLED=0 go build -o . ./...",
-		Depends: "clean api test",
+		Depends: "clean api",
 		Default: true,
 		Help:    "build binaries",
 	},
 	"test": {
 		Command: "go test ./... -v",
 		Depends: "clean",
-		Help:    "run bdd tests",
+		Help:    "run bdd tests (IPFS must be running locally on port 5001)",
+		Gate:    fab.Exec("lsof -i -P -n | grep LISTEN | grep 5001 2>&1 > /dev/null"),
 	},
 	"docker-image": {
 		Command: "docker build . -t dartboard:latest",

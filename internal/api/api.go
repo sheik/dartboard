@@ -199,13 +199,11 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 	}
 	defer rows.Close()
 
-	var requestIds []string
 	for rows.Next() {
 		var requestId string
 		var cid string
 
 		rows.Scan(&requestId, &cid)
-		requestIds = append(requestIds, requestId)
 
 		// TODO pins should only be unpinned if this is not pinned over all accounts
 		err := sh.Unpin(cid)
@@ -213,19 +211,19 @@ func (p PinningServer) DeletePinByRequestId(ctx context.Context, request DeleteP
 			log.Error().Str("CID", cid).Str("RequestId", requestId).Err(err).Msg("could not unpin cid")
 		}
 	}
+
 	err = rows.Err()
 	if err != nil {
 		log.Error().Err(err).Msg("error fetching rows")
 		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
 
-	stmt, err = db.Prepare("delete from pins where request_id IN (?)")
+	stmt, err = db.Prepare("delete from pins where request_id = ?")
 	if err != nil {
 		log.Error().Err(err).Msg("unable to prepare delete query")
 		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil
 	}
-
-	_, err = stmt.Exec(strings.Join(requestIds, ","))
+	_, err = stmt.Exec(request.Requestid)
 	if err != nil {
 		log.Error().Err(err).Msg("unable to execute delete query")
 		return DeletePinByRequestId5XXJSONResponse{StatusCode: 500}, nil

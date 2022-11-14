@@ -152,6 +152,27 @@ func theResponseCodeShouldBe(ctx context.Context, expectedCode int) error {
 	return nil
 }
 
+func thePinIsDeleted(ctx context.Context) (context.Context, error) {
+	resp := ctx.Value("response").(*http.Response)
+	body, _ := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+	status := PinStatus{}
+	json.Unmarshal(body, &status)
+
+	posturl := fmt.Sprintf("http://%s/pins/%s", ctx.Value("address").(string), status.Requestid)
+	client := http.Client{}
+	req, err := http.NewRequest(http.MethodDelete, posturl, nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = client.Do(req)
+	if err != nil {
+		return ctx, err
+	}
+	newCtx := context.WithValue(ctx, "response", resp)
+
+	return newCtx, nil
+}
+
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
 		server := ctx.Value("server").(*echo.Echo)
@@ -166,4 +187,5 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a pin is created with name "([^"]*)" and CID "([^"]*)"$`, aPinIsCreatedWithNameAndCID)
 	ctx.Step(`^an empty database$`, anEmptyDatabase)
 	ctx.Step(`^the response code should be (\d+)$`, theResponseCodeShouldBe)
+	ctx.Step(`^the pin is deleted$`, thePinIsDeleted)
 }

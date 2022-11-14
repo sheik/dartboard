@@ -23,3 +23,13 @@ Feature: API
     And a list of pins is requested
     And the response code should be 200
     And there should be 1 pins in result
+
+  Scenario: Delete pin
+    Given a pinning server
+    And an empty database
+    And a pin is created with name "deleteme" and CID "Qma71JMRwZc2aVMZ5McmbggfTgMJJQ8k3HKM8GpMeBR2CU"
+    When the pin is deleted
+    And the response code should be 202
+    And a list of pins is requested
+    And the response code should be 200
+    And there should be 0 pins in result

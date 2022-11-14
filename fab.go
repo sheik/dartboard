@@ -5,7 +5,20 @@ package main
 
 import "github.com/sheik/fab"
 
+const imageName = "dartboard-util:latest"
+
+var (
+	image   = fab.Container(imageName).Mount("$PWD", "/app")
+	version = fab.GetVersion()
+	uid     = fab.Output("id -u")
+	gid     = fab.Output("id -g")
+)
+
 var plan = fab.Plan{
+	"dartboard-util": {
+		Command: "docker build -f docker/dockerfiles/dartboard-util/Dockerfile . -t dartboard-util:latest",
+		Check:   fab.ImageExists(imageName),
+	},
 	"clean": {
 		Command: "rm -rf $(ls cmd)",
 		Help:    "clean build artifacts from repo",
@@ -34,6 +47,18 @@ var plan = fab.Plan{
 		Command: "docker build . -t dartboard:latest",
 		Depends: "build",
 		Help:    "build a docker image of dartboard",
+	},
+	"deb": {
+		Command: image.Run("fpm -s dir -t deb -n dartboard -v %s usr", version),
+		Depends: "dartboard-util",
+	},
+	"rpm": {
+		Command: image.Run("fpm -s dir -t rpm -n dartboard -v %s usr", version),
+		Depends: "dartboard-util",
+	},
+	"package": {
+		Command: image.Run("chown %s:%s *.deb *.rpm", uid, gid),
+		Depends: "deb rpm",
 	},
 }
 

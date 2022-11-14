@@ -1,3 +1,5 @@
 .idea
 /dartboard
 pins.sqlite
+*.rpm
+*.deb
